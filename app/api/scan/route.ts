@@ -171,12 +171,13 @@ export async function POST(request: NextRequest) {
       let issueCounter = 0;
 
       for (const [auditId, audit] of Object.entries(audits)) {
+        const typedAudit = audit as any;
         // Only include failed or warned audits
-        if (audit.score !== null && audit.score < 1 && audit.scoreDisplayMode !== 'notApplicable') {
+        if (typedAudit.score !== null && typedAudit.score < 1 && typedAudit.scoreDisplayMode !== 'notApplicable') {
           const elements: string[] = [];
 
-          if (audit.details?.items) {
-            audit.details.items.forEach((item: any) => {
+          if (typedAudit.details?.items) {
+            typedAudit.details.items.forEach((item: any) => {
               if (item.node?.selector) {
                 elements.push(item.node.selector);
               } else if (item.node?.snippet) {
@@ -187,14 +188,14 @@ export async function POST(request: NextRequest) {
 
           issues.push({
             id: `issue-${issueCounter++}`,
-            title: audit.title,
-            description: audit.description,
-            severity: getSeverity(audit.score),
+            title: typedAudit.title,
+            description: typedAudit.description,
+            severity: getSeverity(typedAudit.score),
             category: mapAuditToCategory(auditId),
-            impact: audit.score === 0 ? 'High' : audit.score < 0.5 ? 'Medium' : 'Low',
+            impact: typedAudit.score === 0 ? 'High' : typedAudit.score < 0.5 ? 'Medium' : 'Low',
             elements: elements.slice(0, 5),
             fix: getFixSuggestion(auditId),
-            helpUrl: audit.helpText ? `https://web.dev/${auditId}/` : `https://web.dev/accessibility/`,
+            helpUrl: typedAudit.helpText ? `https://web.dev/${auditId}/` : `https://web.dev/accessibility/`,
           });
         }
       }
