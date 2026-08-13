@@ -1,230 +1,297 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import UrlInput from '@/components/UrlInput';
 import ScoreDisplay from '@/components/ScoreDisplay';
 import IssueList from '@/components/IssueList';
 import FixPreview from '@/components/FixPreview';
-import type { ScanResult } from '@/types/accessibility';
+import ScanSkeleton from '@/components/ScanSkeleton';
+import RecentScans from '@/components/RecentScans';
+import ThemeToggle from '@/components/ThemeToggle';
+import { AlertIcon, CheckIcon, InfoIcon } from '@/components/ui/Icons';
+import type { HistoryEntry, ScanResult, Strategy } from '@/types/accessibility';
 
-interface ScanResultWithWarning extends ScanResult {
-  warning?: string;
-}
+const HISTORY_KEY = 'a11y-history';
+const HISTORY_LIMIT = 6;
+
+const FEATURES = [
+  {
+    title: 'Real Lighthouse audits',
+    body: 'Every scan runs the same accessibility audits Chrome ships with, via the Google PageSpeed Insights API — no simulated results.',
+  },
+  {
+    title: 'Prioritised by impact',
+    body: 'Findings are ranked by the weight Lighthouse assigns them, so the failures that block the most people surface first.',
+  },
+  {
+    title: 'Fixes you can act on',
+    body: 'Each issue carries the affected selectors, a concrete remediation, and a link to the underlying rule documentation.',
+  },
+];
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResultWithWarning | null>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  const handleScan = async (url: string) => {
-    setIsLoading(true);
-    setError(null);
-    setScanResult(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
+  // Restore history on mount; localStorage is unavailable during SSR.
+  useEffect(() => {
     try {
-      const response = await fetch('/api/scan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+      const stored = localStorage.getItem(HISTORY_KEY);
+      if (stored) setHistory(JSON.parse(stored));
+    } catch {
+      /* Corrupt or blocked storage — start empty. */
+    }
+  }, []);
 
-      let data;
+  const rememberScan = useCallback((scan: ScanResult) => {
+    setHistory((previous) => {
+      const entry: HistoryEntry = {
+        url: scan.url,
+        score: scan.score,
+        issueCount: scan.issues.length,
+        strategy: scan.strategy,
+        timestamp: scan.timestamp,
+      };
+      const next = [entry, ...previous.filter((item) => item.url !== scan.url)].slice(
+        0,
+        HISTORY_LIMIT,
+      );
       try {
-        data = await response.json();
-      } catch (parseError) {
-        throw new Error('Server returned an invalid response. Please try again.');
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        /* Storage full or blocked — history is best-effort. */
       }
+      return next;
+    });
+  }, []);
 
-      if (!response.ok) {
-        const errorMessage = data.error || 'Failed to scan URL';
-        const errorDetails = data.details ? ` (${data.details})` : '';
-        throw new Error(errorMessage + errorDetails);
+  const handleScan = useCallback(
+    async (url: string, strategy: Strategy) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+
+      try {
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, strategy }),
+          signal: controller.signal,
+        });
+
+        let data: any;
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error('The server returned an unreadable response. Please try again.');
+        }
+
+        if (!response.ok) {
+          throw new Error(data?.error || `Scan failed with status ${response.status}`);
+        }
+
+        setResult(data as ScanResult);
+        rememberScan(data as ScanResult);
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return; // Superseded by a newer scan.
+        setError(err?.message || 'Something went wrong while scanning.');
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsLoading(false);
+        }
       }
+    },
+    [rememberScan],
+  );
 
-      setScanResult(data);
-    } catch (err: any) {
-      console.error('Scan error:', err);
-      setError(err.message || 'An error occurred while scanning');
-    } finally {
-      setIsLoading(false);
+  // Move focus and scroll to the report once it lands.
+  useEffect(() => {
+    if (result) resultsRef.current?.focus();
+  }, [result]);
+
+  const clearHistory = () => {
+    setHistory([]);
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      /* Nothing to do. */
     }
   };
 
-  const handleClear = () => {
-    setScanResult(null);
+  const reset = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setResult(null);
     setError(null);
+    setIsLoading(false);
   };
 
+  const showIdleContent = !isLoading && !result && !error;
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            ♿ Visual Web Accessibility Tester
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Scan any website to identify accessibility issues and get actionable recommendations
-            to make the web more inclusive for everyone.
-          </p>
-        </div>
+    <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-40 border-b border-border bg-canvas/85 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+          <a href="#main" className="flex items-center gap-2.5 font-bold tracking-tight text-ink">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-sm text-accent-ink">
+              A11
+            </span>
+            A11y Scan
+          </a>
 
-        {/* URL Input */}
-        <div className="mb-8">
-          <UrlInput onScan={handleScan} isLoading={isLoading} />
+          <nav className="ml-auto flex items-center gap-2">
+            {result && (
+              <button type="button" onClick={reset} className="btn-ghost text-xs">
+                New scan
+              </button>
+            )}
+            <a
+              href="https://www.w3.org/WAI/WCAG22/quickref/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden text-sm font-medium text-ink-muted hover:text-ink sm:block"
+            >
+              WCAG reference
+            </a>
+            <ThemeToggle />
+          </nav>
         </div>
+      </header>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <svg
-                className="animate-spin h-12 w-12 text-blue-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <p className="text-lg font-medium text-gray-900 dark:text-white">
-                Scanning website for accessibility issues...
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                This may take up to 30 seconds
+      <main id="main" className="relative">
+        {/* Hero */}
+        <div className="relative overflow-hidden border-b border-border">
+          <div className="grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
+          <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-14 sm:px-6 sm:pt-20 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-ink-muted">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+                Powered by Lighthouse via PageSpeed Insights
+              </span>
+
+              <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+                Find what your site breaks for real users
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-ink-muted">
+                Scan any public page against the WCAG rules Lighthouse checks, ranked by how much
+                damage each failure does — with the selectors and the fix for every one.
               </p>
             </div>
-          </div>
-        )}
 
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">❌</span>
+            <div className="mx-auto mt-10 max-w-4xl">
+              <UrlInput onScan={handleScan} isLoading={isLoading} history={history} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
+          {isLoading && <ScanSkeleton />}
+
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-2xl border border-critical/30 bg-critical/10 p-5"
+            >
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-critical" />
               <div>
-                <h3 className="font-semibold text-red-800 dark:text-red-300 mb-1">
-                  Scan Failed
-                </h3>
-                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                <h2 className="font-semibold text-ink">Scan failed</h2>
+                <p className="mt-1 text-sm text-ink-muted">{error}</p>
                 <button
-                  onClick={handleClear}
-                  className="mt-3 text-sm font-medium text-red-800 dark:text-red-300 hover:underline"
+                  type="button"
+                  onClick={reset}
+                  className="mt-3 text-sm font-semibold text-critical hover:underline"
                 >
-                  Try again
+                  Dismiss and try again
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Results */}
-        {scanResult && !isLoading && (
-          <div className="space-y-8">
-            {/* Demo Data Warning */}
-            {scanResult.warning && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">ℹ️</span>
+          {result && !isLoading && (
+            <div
+              ref={resultsRef}
+              tabIndex={-1}
+              className="animate-fade-up space-y-8 outline-none"
+              aria-label="Scan results"
+            >
+              {result.warning ? (
+                <div className="flex items-start gap-3 rounded-2xl border border-moderate/30 bg-moderate/10 p-4">
+                  <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-moderate" />
                   <div>
-                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
-                      Demo Mode
-                    </h3>
-                    <p className="text-sm text-blue-700 dark:text-blue-400">{scanResult.warning}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-500 mt-2">
-                      Note: The API may be rate-limited. Try again in a few moments.
-                    </p>
+                    <h2 className="text-sm font-semibold text-ink">Demo data</h2>
+                    <p className="mt-0.5 text-sm text-ink-muted">{result.warning}</p>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-start gap-3 rounded-2xl border border-success/25 bg-success/10 p-4">
+                  <CheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+                  <p className="text-sm text-ink-muted">
+                    <span className="font-semibold text-ink">Live scan complete.</span> Results come
+                    straight from Lighthouse via the PageSpeed Insights API.
+                  </p>
+                </div>
+              )}
 
-            {/* Success indicator for real data */}
-            {!scanResult.warning && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">✅</span>
-                  <div>
-                    <h3 className="font-semibold text-green-800 dark:text-green-300 mb-1">
-                      Live Scan Complete
-                    </h3>
-                    <p className="text-sm text-green-700 dark:text-green-400">
-                      Results powered by Google PageSpeed Insights (Lighthouse)
+              <ScoreDisplay result={result} />
+              <IssueList issues={result.issues} />
+              <FixPreview />
+            </div>
+          )}
+
+          {showIdleContent && (
+            <div className="space-y-10">
+              <RecentScans
+                entries={history}
+                onSelect={(entry) => handleScan(entry.url, entry.strategy)}
+                onClear={clearHistory}
+              />
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {FEATURES.map((feature, index) => (
+                  <div key={feature.title} className="card p-6">
+                    <span className="font-mono text-xs font-semibold text-accent">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <h2 className="mt-3 text-base font-semibold text-ink">{feature.title}</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-ink-muted text-pretty">
+                      {feature.body}
                     </p>
                   </div>
-                </div>
+                ))}
               </div>
-            )}
 
-            {/* Clear button */}
-            <div className="flex justify-end">
-              <button
-                onClick={handleClear}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
-              >
-                Clear Results
-              </button>
+              <FixPreview />
             </div>
+          )}
+        </div>
+      </main>
 
-            {/* Score */}
-            <ScoreDisplay result={scanResult} />
-
-            {/* Fix Examples */}
-            {scanResult.issues.length > 0 && <FixPreview />}
-
-            {/* Issue List */}
-            <IssueList issues={scanResult.issues} />
-          </div>
-        )}
-
-        {/* Info cards when no scan is active */}
-        {!isLoading && !scanResult && !error && (
-          <div className="grid md:grid-cols-3 gap-6 mt-12">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Real-Time Scanning
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Uses Google PageSpeed Insights API (powered by Lighthouse) to analyze accessibility issues in real-time.
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <div className="text-4xl mb-4">💡</div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Actionable Fixes
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Get clear, practical suggestions for fixing each issue with code examples and
-                best practices.
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Visual Reports
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                View categorized issues with severity levels, affected elements, and detailed
-                descriptions.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </main>
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-ink-subtle sm:flex-row sm:items-center sm:px-6 lg:px-8">
+          <p>
+            Automated testing catches roughly a third of accessibility barriers — pair it with
+            keyboard and screen reader testing.
+          </p>
+          <a
+            href="https://www.w3.org/WAI/test-evaluate/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-ink-muted hover:text-ink hover:underline sm:ml-auto sm:shrink-0"
+          >
+            W3C evaluation guide
+          </a>
+        </div>
+      </footer>
+    </div>
   );
 }

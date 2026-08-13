@@ -2,32 +2,148 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
+/*
+ * Colour tokens are defined as raw `R G B` triples so Tailwind can apply its
+ * own alpha channel (`bg-surface/60`). Light is the base; dark overrides only
+ * the values that change.
+ */
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --canvas: 248 250 252;
+    --canvas-deep: 241 245 249;
+    --surface: 255 255 255;
+    --surface-raised: 255 255 255;
+    --border: 226 232 240;
+    --border-strong: 203 213 225;
+    --ink: 15 23 42;
+    --ink-muted: 71 85 105;
+    --ink-subtle: 100 116 139;
+
+    --accent: 79 70 229;
+    --accent-hover: 67 56 202;
+    --accent-soft: 238 242 255;
+    --accent-ink: 255 255 255;
+
+    --critical: 220 38 38;
+    --serious: 234 88 12;
+    --moderate: 202 138 4;
+    --minor: 71 85 105;
+    --success: 5 150 105;
+
+    --ring: 99 102 241;
+    --shadow-color: 15 23 42;
+  }
+
+  .dark {
+    --canvas: 9 9 15;
+    --canvas-deep: 4 4 8;
+    --surface: 22 23 32;
+    --surface-raised: 30 31 42;
+    --border: 44 46 60;
+    --border-strong: 63 66 84;
+    --ink: 237 239 246;
+    --ink-muted: 161 166 184;
+    --ink-subtle: 128 133 152;
+
+    --accent: 129 124 255;
+    --accent-hover: 148 143 255;
+    --accent-soft: 39 37 71;
+    --accent-ink: 14 14 22;
+
+    --critical: 248 113 113;
+    --serious: 251 146 60;
+    --moderate: 250 204 21;
+    --minor: 148 163 184;
+    --success: 52 211 153;
+
+    --ring: 129 124 255;
+    --shadow-color: 0 0 0;
+  }
+
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: rgb(var(--canvas));
+    color: rgb(var(--ink));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One consistent, always-visible focus treatment across the whole app. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: rgb(var(--accent) / 0.25);
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-[background-color,border-color,color,transform] duration-150
+           disabled:pointer-events-none disabled:opacity-55;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:bg-accent-hover active:translate-y-px;
+  }
+
+  .btn-ghost {
+    @apply btn border border-border bg-surface text-ink-muted hover:border-border-strong hover:text-ink active:translate-y-px;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5
+           text-sm font-medium text-ink-muted transition-colors
+           hover:border-border-strong hover:text-ink;
+  }
+
+  .chip-active {
+    @apply border-accent bg-accent text-accent-ink hover:border-accent hover:text-accent-ink;
+  }
+
+  /* Subtle dotted texture behind the hero. */
+  .grid-texture {
+    background-image: radial-gradient(rgb(var(--ink) / 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* Honour the OS setting — an accessibility tool should lead by example. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

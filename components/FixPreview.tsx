@@ -1,105 +1,198 @@
 'use client';
 
 import React, { useState } from 'react';
+import CopyButton from './ui/CopyButton';
 
 interface FixExample {
+  id: string;
   title: string;
+  wcag: string;
+  description: string;
   before: string;
   after: string;
-  description: string;
 }
 
-const fixExamples: FixExample[] = [
+const FIX_EXAMPLES: FixExample[] = [
   {
-    title: 'Image Alt Text',
-    before: '<img src="logo.png">',
-    after: '<img src="logo.png" alt="Company Logo">',
-    description: 'Add descriptive alt text to images so screen readers can describe them to users.',
+    id: 'alt',
+    title: 'Image alt text',
+    wcag: 'WCAG 1.1.1',
+    description:
+      'Describe what the image communicates, not that it is an image. Purely decorative images take an empty alt so screen readers skip them.',
+    before: `<img src="logo.png">
+<img src="divider.svg">`,
+    after: `<img src="logo.png" alt="Acme home">
+<img src="divider.svg" alt="">`,
   },
   {
-    title: 'Color Contrast',
-    before: '<p style="color: #ccc; background: #fff">Text</p>',
-    after: '<p style="color: #333; background: #fff">Text</p>',
-    description: 'Ensure text has sufficient contrast ratio (4.5:1 for normal text) against its background.',
+    id: 'contrast',
+    title: 'Colour contrast',
+    wcag: 'WCAG 1.4.3',
+    description:
+      'Body text needs a 4.5:1 ratio against its background; 3:1 is enough for text 18pt and larger, or bold 14pt and larger.',
+    before: `.subtitle {
+  color: #b9b9b9;   /* 2.1:1 — fails */
+  background: #fff;
+}`,
+    after: `.subtitle {
+  color: #565656;   /* 7.1:1 — passes */
+  background: #fff;
+}`,
   },
   {
-    title: 'ARIA Labels',
-    before: '<button><span class="icon"></span></button>',
-    after: '<button aria-label="Close dialog"><span class="icon"></span></button>',
-    description: 'Add aria-label to buttons without text content so screen readers can announce their purpose.',
+    id: 'name',
+    title: 'Accessible names',
+    wcag: 'WCAG 4.1.2',
+    description:
+      'Icon-only controls are announced as just "button". Give them a name with aria-label, or with visually hidden text that survives CSS being unavailable.',
+    before: `<button>
+  <svg class="icon-close"></svg>
+</button>`,
+    after: `<button aria-label="Close dialog">
+  <svg class="icon-close" aria-hidden="true"></svg>
+</button>`,
   },
   {
-    title: 'Form Labels',
-    before: '<input type="email" placeholder="Email">',
-    after: '<label for="email">Email</label>\n<input id="email" type="email">',
-    description: 'Associate form inputs with labels so users understand what information is required.',
+    id: 'label',
+    title: 'Form labels',
+    wcag: 'WCAG 3.3.2',
+    description:
+      'A placeholder disappears as soon as typing starts and is not reliably announced. Pair every control with a real label.',
+    before: `<input type="email"
+       placeholder="Email">`,
+    after: `<label for="email">Email</label>
+<input id="email" type="email"
+       autocomplete="email">`,
+  },
+  {
+    id: 'landmark',
+    title: 'Skip links & landmarks',
+    wcag: 'WCAG 2.4.1',
+    description:
+      'Keyboard users should be able to jump past repeated navigation. A skip link plus real landmark elements gives them two ways to do it.',
+    before: `<div class="nav">…</div>
+<div class="content">…</div>`,
+    after: `<a href="#main" class="skip-link">
+  Skip to main content
+</a>
+<nav>…</nav>
+<main id="main">…</main>`,
+  },
+  {
+    id: 'focus',
+    title: 'Visible focus',
+    wcag: 'WCAG 2.4.7',
+    description:
+      'Removing outlines leaves keyboard users with no idea where they are. Replace the default with something stronger instead of deleting it.',
+    before: `:focus {
+  outline: none;
+}`,
+    after: `:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}`,
   },
 ];
 
 export default function FixPreview() {
-  const [selectedExample, setSelectedExample] = useState(0);
+  const [selected, setSelected] = useState(0);
+  const example = FIX_EXAMPLES[selected];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-        💡 Fix Examples
-      </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">
-        See how to fix common accessibility issues with before and after examples.
-      </p>
+    <section className="card overflow-hidden" aria-labelledby="fixes-heading">
+      <div className="border-b border-border p-5 sm:p-6">
+        <h2 id="fixes-heading" className="text-xl font-bold tracking-tight text-ink">
+          Common fixes
+        </h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Reference patterns for the failures that show up most often.
+        </p>
 
-      <div className="grid md:grid-cols-4 gap-4 mb-6">
-        {fixExamples.map((example, index) => (
-          <button
-            key={index}
-            onClick={() => setSelectedExample(index)}
-            className={`p-3 rounded-lg text-left transition-all ${
-              selectedExample === index
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            <div className="font-medium text-sm">{example.title}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            {fixExamples[selectedExample].title}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {fixExamples[selectedExample].description}
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-red-600 dark:text-red-400 text-xl">❌</span>
-              <h4 className="font-semibold text-gray-900 dark:text-white">Before</h4>
-            </div>
-            <pre className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 overflow-x-auto">
-              <code className="text-sm text-red-900 dark:text-red-300">
-                {fixExamples[selectedExample].before}
-              </code>
-            </pre>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-green-600 dark:text-green-400 text-xl">✅</span>
-              <h4 className="font-semibold text-gray-900 dark:text-white">After</h4>
-            </div>
-            <pre className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 overflow-x-auto">
-              <code className="text-sm text-green-900 dark:text-green-300">
-                {fixExamples[selectedExample].after}
-              </code>
-            </pre>
-          </div>
+        <div
+          role="tablist"
+          aria-label="Fix examples"
+          className="mt-4 flex flex-wrap gap-2"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            const delta = e.key === 'ArrowRight' ? 1 : -1;
+            const next = (selected + delta + FIX_EXAMPLES.length) % FIX_EXAMPLES.length;
+            setSelected(next);
+            document.getElementById(`fix-tab-${FIX_EXAMPLES[next].id}`)?.focus();
+          }}
+        >
+          {FIX_EXAMPLES.map((item, index) => {
+            const active = index === selected;
+            return (
+              <button
+                key={item.id}
+                id={`fix-tab-${item.id}`}
+                role="tab"
+                type="button"
+                aria-selected={active}
+                aria-controls={`fix-panel-${item.id}`}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setSelected(index)}
+                className={`chip text-xs ${active ? 'chip-active' : ''}`}
+              >
+                {item.title}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      <div
+        id={`fix-panel-${example.id}`}
+        role="tabpanel"
+        aria-labelledby={`fix-tab-${example.id}`}
+        tabIndex={0}
+        className="p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-base font-semibold text-ink">{example.title}</h3>
+          <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent">
+            {example.wcag}
+          </span>
+        </div>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted text-pretty">
+          {example.description}
+        </p>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <CodePane variant="before" code={example.before} />
+          <CodePane variant="after" code={example.after} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CodePane({ variant, code }: { variant: 'before' | 'after'; code: string }) {
+  const isBefore = variant === 'before';
+  return (
+    <div
+      className={`overflow-hidden rounded-xl border ${
+        isBefore ? 'border-critical/25' : 'border-success/25'
+      }`}
+    >
+      <div
+        className={`flex items-center justify-between px-3 py-2 ${
+          isBefore ? 'bg-critical/10' : 'bg-success/10'
+        }`}
+      >
+        <span
+          className={`text-xs font-bold uppercase tracking-wider ${
+            isBefore ? 'text-critical' : 'text-success'
+          }`}
+        >
+          {isBefore ? 'Avoid' : 'Prefer'}
+        </span>
+        {!isBefore && <CopyButton value={code} label="code example" withText />}
+      </div>
+      <pre className="overflow-x-auto bg-canvas-deep/60 p-4">
+        <code className="font-mono text-xs leading-relaxed text-ink-muted">{code}</code>
+      </pre>
     </div>
   );
 }

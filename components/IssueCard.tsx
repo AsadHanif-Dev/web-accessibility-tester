@@ -1,139 +1,138 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import type { AccessibilityIssue } from '@/types/accessibility';
+import { CATEGORY_META, SEVERITY_META } from '@/lib/issue-meta';
+import { ChevronIcon, ExternalIcon, SparkIcon } from './ui/Icons';
+import CopyButton from './ui/CopyButton';
 
 interface IssueCardProps {
   issue: AccessibilityIssue;
+  defaultOpen?: boolean;
 }
 
-export default function IssueCard({ issue }: IssueCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const getSeverityColors = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 dark:bg-red-900/30 border-red-500 text-red-800 dark:text-red-300';
-      case 'warning':
-        return 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-500 text-yellow-800 dark:text-yellow-300';
-      case 'success':
-        return 'bg-green-100 dark:bg-green-900/30 border-green-500 text-green-800 dark:text-green-300';
-      default:
-        return 'bg-gray-100 dark:bg-gray-700 border-gray-500 text-gray-800 dark:text-gray-300';
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'images':
-        return '🖼️';
-      case 'contrast':
-        return '🎨';
-      case 'aria':
-        return '♿';
-      default:
-        return '⚠️';
-    }
-  };
-
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'images':
-        return 'Images';
-      case 'contrast':
-        return 'Color Contrast';
-      case 'aria':
-        return 'ARIA & Labels';
-      default:
-        return 'Other';
-    }
-  };
+export default function IssueCard({ issue, defaultOpen = false }: IssueCardProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
+  const severity = SEVERITY_META[issue.severity];
 
   return (
-    <div className={`border-l-4 rounded-lg p-4 mb-4 transition-all ${getSeverityColors(issue.severity)}`}>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-        aria-expanded={isExpanded}
-        aria-controls={`issue-details-${issue.id}`}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-2xl" role="img" aria-label={getCategoryLabel(issue.category)}>
-                {getCategoryIcon(issue.category)}
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wide opacity-75">
-                {getCategoryLabel(issue.category)}
-              </span>
-              <span className="text-xs font-medium px-2 py-1 rounded bg-white/50 dark:bg-black/20">
-                {issue.impact} Impact
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold mb-1">{issue.title}</h3>
-            <p className="text-sm opacity-90">{issue.description}</p>
-          </div>
-          <div className="flex-shrink-0">
-            <svg
-              className={`w-6 h-6 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-      </button>
+    <article
+      className={`overflow-hidden rounded-xl border bg-surface transition-colors ${
+        open ? 'border-border-strong' : 'border-border hover:border-border-strong'
+      }`}
+    >
+      <h3>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex w-full items-start gap-4 p-4 text-left sm:p-5"
+        >
+          <span
+            className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${severity.bg}`}
+            aria-hidden="true"
+          />
 
-      {isExpanded && (
-        <div id={`issue-details-${issue.id}`} className="mt-4 pt-4 border-t border-current/20">
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                <span>💡</span> How to Fix
-              </h4>
-              <p className="text-sm bg-white/50 dark:bg-black/20 p-3 rounded">
-                {issue.fix}
-              </p>
-            </div>
+          <span className="min-w-0 flex-1">
+            <span className="mb-1.5 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider
+                            ${severity.soft} ${severity.text}`}
+              >
+                {severity.label}
+              </span>
+              <span className="text-xs font-medium text-ink-subtle">
+                {CATEGORY_META[issue.category].label}
+              </span>
+              {issue.elements.length > 0 && (
+                <span className="text-xs text-ink-subtle">
+                  · {issue.elements.length} element{issue.elements.length === 1 ? '' : 's'}
+                </span>
+              )}
+            </span>
 
-            {issue.elements && issue.elements.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <span>🔍</span> Affected Elements ({issue.elements.length})
-                </h4>
-                <div className="space-y-2">
-                  {issue.elements.map((element, index) => (
-                    <code
-                      key={index}
-                      className="block text-xs bg-white/50 dark:bg-black/20 p-2 rounded overflow-x-auto"
-                    >
-                      {element}
-                    </code>
-                  ))}
-                </div>
-              </div>
+            <span className="block text-base font-semibold leading-snug text-ink">
+              {issue.title}
+            </span>
+
+            {!open && (
+              <span className="mt-1 line-clamp-2 block text-sm text-ink-muted">
+                {issue.description}
+              </span>
             )}
+          </span>
 
+          <ChevronIcon
+            className={`mt-1 h-5 w-5 shrink-0 text-ink-subtle transition-transform duration-200 ${
+              open ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+      </h3>
+
+      {open && (
+        <div id={panelId} className="animate-fade-up border-t border-border px-4 pb-5 pt-4 sm:px-5">
+          <p className="text-sm leading-relaxed text-ink-muted text-pretty">{issue.description}</p>
+
+          <div className="mt-4 rounded-xl border border-accent/25 bg-accent-soft p-4">
+            <h4 className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-ink">
+              <SparkIcon className="h-4 w-4 text-accent" />
+              How to fix
+            </h4>
+            <p className="text-sm leading-relaxed text-ink-muted text-pretty">{issue.fix}</p>
+          </div>
+
+          {issue.elements.length > 0 && (
+            <div className="mt-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">
+                Affected elements
+              </h4>
+              <ul className="space-y-2">
+                {issue.elements.map((element, index) => {
+                  const code = element.snippet ?? element.selector ?? '';
+                  return (
+                    <li
+                      key={`${issue.id}-el-${index}`}
+                      className="group rounded-lg border border-border bg-canvas-deep/60 p-2.5"
+                    >
+                      <div className="flex items-start gap-2">
+                        <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-ink-muted">
+                          {code}
+                        </code>
+                        <CopyButton value={code} label="element" className="shrink-0" />
+                      </div>
+                      {element.selector && element.snippet && (
+                        <p className="mt-1.5 truncate font-mono text-[11px] text-ink-subtle">
+                          {element.selector}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <code className="rounded bg-canvas-deep px-2 py-1 font-mono text-[11px] text-ink-subtle">
+              {issue.auditId}
+            </code>
             {issue.helpUrl && (
-              <div>
-                <a
-                  href={issue.helpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
-                >
-                  <span>📚</span> Learn More
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              </div>
+              <a
+                href={issue.helpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+              >
+                Full documentation
+                <ExternalIcon className="h-4 w-4" />
+              </a>
             )}
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }

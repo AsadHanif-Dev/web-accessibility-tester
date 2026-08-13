@@ -1,264 +1,221 @@
 # Visual Web Accessibility Tester
 
-A modern, frontend-focused web accessibility testing tool built with **Next.js**, **React**, **TypeScript**, and **Tailwind CSS**. This MVP helps identify and visualize common accessibility issues on any website using Google Lighthouse.
+A web accessibility testing tool built with **Next.js**, **React**, **TypeScript**, and **Tailwind CSS**. Scan any public URL against the WCAG rules Lighthouse checks, ranked by how much damage each failure does, with the affected selectors and a concrete fix for every finding.
 
-![Visual Web Accessibility Tester](https://img.shields.io/badge/Next.js-14.2-black?style=for-the-badge&logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=for-the-badge&logo=tailwind-css)
 
 ## ✨ Features
 
-- 🔍 **Comprehensive Scanning**: Powered by Google Lighthouse to detect accessibility issues
-- 📊 **Visual Reports**: Color-coded severity levels (Critical, Warning, Success)
-- 🎨 **Categorized Issues**: Organized by Images, Color Contrast, ARIA, and Other
-- 💡 **Actionable Fixes**: Clear suggestions with before/after code examples
-- 🔄 **Interactive UI**: Expandable cards, filtering, and responsive design
-- ⚡ **Real-time Feedback**: Loading states and error handling
-- 📱 **Mobile Responsive**: Works seamlessly on desktop and mobile devices
+- 🔍 **Real Lighthouse audits** — runs the accessibility category of Lighthouse through the Google PageSpeed Insights API, for desktop or mobile
+- 📊 **Impact-ranked results** — issues are sorted by the audit weight Lighthouse assigns them and graded Critical / Serious / Moderate / Minor
+- 🧭 **Six issue areas** — Images & media, Colour contrast, Names & ARIA, Forms, Structure, Other
+- 💡 **Actionable fixes** — every finding carries the affected selectors, the DOM snippet, a concrete remediation, and a link to the rule documentation
+- 🔎 **Search & filter** — free-text search across titles, descriptions and selectors, plus severity and area filters with live counts
+- 📥 **Export** — download the report as JSON or Markdown, or copy the Markdown straight to the clipboard
+- 🕒 **Scan history** — the last six scans are kept in `localStorage` and re-runnable in one click
+- 🌘 **Light & dark themes** — follows the system setting, overridable, with no flash on load
+- ♿ **Accessible by construction** — skip link, visible focus rings, live regions, real disclosure semantics, keyboard-navigable tabs, and `prefers-reduced-motion` support
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Node.js** 18.0 or higher
-- **npm** or **yarn** package manager
+- **npm** or **yarn**
 
 ### Installation
 
-1. **Clone or navigate to the project directory**:
-   ```bash
-   cd web-accessiblity-tester
-   ```
+```bash
+npm install
+npm run dev
+```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+Then open <http://localhost:3000>.
 
-3. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
+An API key is optional — without one you share Google's anonymous quota, and the app falls back to clearly-labelled demo data when that quota is exhausted. To use your own:
 
-4. **Open your browser** and navigate to:
-   ```
-   http://localhost:3000
-   ```
+```bash
+cp .env.example .env.local
+# then set GOOGLE_PAGESPEED_API_KEY
+```
 
 ## 📦 Project Structure
 
 ```
 web-accessiblity-tester/
 ├── app/
-│   ├── api/
-│   │   └── scan/
-│   │       └── route.ts          # Lighthouse scanning API endpoint
-│   ├── globals.css               # Global styles with Tailwind
-│   ├── layout.tsx                # Root layout component
-│   └── page.tsx                  # Main page with scan functionality
+│   ├── api/scan/route.ts        # PageSpeed Insights proxy + audit normalisation
+│   ├── globals.css              # Design tokens (light/dark) and component classes
+│   ├── layout.tsx               # Fonts, metadata, no-flash theme script, skip link
+│   └── page.tsx                 # Scan orchestration, history, page composition
 ├── components/
-│   ├── UrlInput.tsx              # URL input component with validation
-│   ├── ScoreDisplay.tsx          # Accessibility score visualization
-│   ├── IssueCard.tsx             # Individual issue card component
-│   ├── IssueList.tsx             # Filterable list of issues
-│   └── FixPreview.tsx            # Before/after fix examples
-├── types/
-│   └── accessibility.ts          # TypeScript interfaces
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-└── next.config.js
+│   ├── UrlInput.tsx             # URL field, device toggle, example shortcuts
+│   ├── ScoreDisplay.tsx         # Score gauge, severity breakdown, export actions
+│   ├── IssueList.tsx            # Search, severity and area filters
+│   ├── IssueCard.tsx            # Expandable finding with elements and fix
+│   ├── FixPreview.tsx           # Before/after reference patterns
+│   ├── ScanSkeleton.tsx         # Loading skeleton with progress copy
+│   ├── RecentScans.tsx          # localStorage-backed scan history
+│   ├── ThemeToggle.tsx          # Light/dark switch
+│   └── ui/                      # Icon set and CopyButton primitive
+├── lib/
+│   ├── issue-meta.ts            # Severity/category metadata and score bands
+│   └── report.ts                # Markdown rendering and file download
+├── types/accessibility.ts       # Shared TypeScript interfaces
+└── tailwind.config.ts           # Token-driven Tailwind theme
 ```
 
 ## 🎯 How to Use
 
-1. **Enter a URL**: Type or paste any website URL into the input field
-2. **Click "Scan"**: The tool will analyze the website (takes 10-30 seconds)
-3. **View Results**: See the accessibility score and categorized issues
-4. **Filter Issues**: Use category and severity filters to focus on specific issues
-5. **Expand Details**: Click on any issue card to see:
-   - How to fix the issue
-   - Affected HTML elements
-   - Learn more documentation links
-6. **View Fix Examples**: Check the "Fix Examples" section for common patterns
-7. **Rescan or Clear**: Use the "Clear Results" button to start over
+1. **Enter a URL** — the scheme is optional (`example.com` works); press <kbd>/</kbd> anywhere to focus the field
+2. **Pick a device profile** — desktop or mobile, which changes how Lighthouse renders the page
+3. **Run the scan** — typically 10–30 seconds
+4. **Read the score** — the gauge shows 0–100, with the severity breakdown and pass counts beneath it
+5. **Filter and search** — narrow by severity or area, or search titles, descriptions and selectors
+6. **Expand an issue** — for the fix, the affected elements (copyable), the audit id, and the rule documentation
+7. **Export** — copy or download the report as Markdown or JSON
+8. **Re-run** — pick any recent scan to run it again
 
 ## 🧩 Key Components
 
-### UrlInput
-- Input validation
-- Loading states
-- Error messages
-- Accessible form controls
-
-### ScoreDisplay
-- Overall accessibility score (0-100)
-- Color-coded status indicator
-- Timestamp and URL information
-
-### IssueList
-- Category filtering (Images, Contrast, ARIA, Other)
-- Severity filtering (Critical, Warning)
-- Issue count displays
-- Responsive grid layout
-
-### IssueCard
-- Expandable/collapsible design
-- Severity and category badges
-- Fix suggestions
-- Affected element snippets
-- External documentation links
-
-### FixPreview
-- Interactive before/after code examples
-- Common accessibility patterns
-- Educational resource
+| Component | Responsibility |
+| --- | --- |
+| `UrlInput` | URL normalisation and validation, desktop/mobile toggle, example shortcuts, `/` focus shortcut |
+| `ScoreDisplay` | Animated score gauge, severity breakdown bar, pass/manual/not-applicable counts, export actions |
+| `IssueList` | Free-text search, severity and area filters with live counts, filter reset |
+| `IssueCard` | Disclosure with the fix, copyable selectors and snippets, audit id, documentation link |
+| `FixPreview` | Six before/after reference patterns as a keyboard-navigable tablist |
+| `ScanSkeleton` | Shimmer skeleton and a polite live region describing scan progress |
+| `RecentScans` | The last six scans from `localStorage`, each re-runnable |
+| `ThemeToggle` | Light/dark switch persisted to `localStorage` |
 
 ## 🛠️ Technology Stack
 
 - **Framework**: Next.js 14.2 (App Router)
-- **Language**: TypeScript 5.0
-- **Styling**: Tailwind CSS 3.4
-- **Accessibility Testing**: Google PageSpeed Insights API (Lighthouse)
-- **Deployment**: Vercel-ready (no Chrome required!)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 3.4 over CSS custom-property design tokens
+- **Accessibility testing**: Google PageSpeed Insights API (Lighthouse)
+- **Deployment**: Vercel-ready — HTTP only, no Chrome binary required
 
 ## 📝 API Endpoint
 
 ### POST `/api/scan`
 
-Scans a website for accessibility issues using Google PageSpeed Insights API.
+**Request body**:
 
-**Request Body**:
-```json
-{
-  "url": "https://example.com"
-}
-```
-
-**Response**:
 ```json
 {
   "url": "https://example.com",
+  "strategy": "desktop"
+}
+```
+
+`strategy` is optional, defaults to `desktop`; the only other value is `mobile`.
+
+**Response**:
+
+```json
+{
+  "url": "https://example.com/",
+  "finalUrl": "https://example.com/",
+  "strategy": "desktop",
   "timestamp": 1234567890,
   "score": 85,
+  "summary": { "passed": 24, "notApplicable": 19, "manual": 10 },
   "issues": [
     {
-      "id": "issue-0",
+      "id": "image-alt-3",
+      "auditId": "image-alt",
       "title": "Image elements do not have [alt] attributes",
-      "description": "...",
+      "description": "…",
       "severity": "critical",
       "category": "images",
-      "impact": "High",
-      "elements": ["<img src='...'>"],
-      "fix": "Add descriptive alt text to all images...",
-      "helpUrl": "https://..."
+      "weight": 10,
+      "elements": [{ "selector": "header > img", "snippet": "<img src='/logo.png'>" }],
+      "fix": "Give every <img> an alt attribute…",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/image-alt"
     }
   ]
 }
 ```
 
+**Severity** is derived from the Lighthouse audit weight: `>= 7` critical, `>= 3` serious, `> 0` moderate, otherwise minor.
+
+If PageSpeed Insights is unreachable or rate-limited, the route still responds `200`, with demo data plus a `warning` string and `isMockData: true` so the UI can label it clearly.
+
 ## 🎨 Customization
 
-### Colors
-Edit severity colors in [tailwind.config.ts](tailwind.config.ts):
-```typescript
-colors: {
-  critical: "#ef4444",  // Red
-  warning: "#f59e0b",   // Yellow
-  success: "#10b981",   // Green
-}
-```
+### Theme
 
-### Categories
-Add more categories in [types/accessibility.ts](types/accessibility.ts) and update the mapping in [app/api/scan/route.ts](app/api/scan/route.ts).
+Colours are CSS custom properties defined once in [app/globals.css](app/globals.css) — `:root` for light, `.dark` for the overrides — and exposed to Tailwind as semantic names (`bg-surface`, `text-ink-muted`, `text-critical`) in [tailwind.config.ts](tailwind.config.ts). Change a token and both themes follow.
 
-### Fix Examples
-Add more examples in [components/FixPreview.tsx](components/FixPreview.tsx).
+### Categories, fixes and severity
+
+Audit-to-area mapping, remediation copy, and severity thresholds live in [app/api/scan/route.ts](app/api/scan/route.ts); their display labels live in [lib/issue-meta.ts](lib/issue-meta.ts).
+
+### Fix examples
+
+Add entries to `FIX_EXAMPLES` in [components/FixPreview.tsx](components/FixPreview.tsx).
 
 ## 🚧 Limitations & Future Enhancements
 
-### Current Limitations
-- API-based scanning (uses public Google PageSpeed Insights API)
-- Rate-limited by Google (may show demo data if quota exceeded)
-- Scans publicly accessible URLs only
-- No authentication for protected pages
+### Current limitations
 
-### Potential Enhancements
-- [ ] API key configuration for higher rate limits
-- [ ] Export reports as PDF/JSON
-- [ ] Historical scan tracking
+- Automated tools catch roughly a third of accessibility barriers — pair this with keyboard and screen reader testing
+- Scans publicly reachable URLs only; no authentication for protected pages
+- Google's anonymous quota is shared and easily exhausted; supply an API key for reliable live scans
+
+### Potential enhancements
+
+- [x] API key configuration for higher rate limits
+- [x] Export reports as JSON/Markdown
+- [x] Historical scan tracking
 - [ ] Batch URL scanning
-- [ ] Custom accessibility rules
-- [ ] Integration with CI/CD pipelines
-- [ ] Detailed element highlighting with screenshots
-- [ ] Accessibility score trends over time
+- [ ] Score trends over time
+- [ ] Element highlighting with screenshots
+- [ ] CI/CD integration
 
 ## 🚀 Deployment
 
-### Deploy to Vercel (Recommended)
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/web-accessibility-tester)
-
-**One-Click Deployment:**
-
-1. Click the "Deploy" button above
-2. Connect your GitHub account
-3. Deploy - that's it! No environment variables needed.
-
-**Manual Deployment:**
+### Vercel (recommended)
 
 ```bash
-# Install Vercel CLI
 npm install -g vercel
-
-# Deploy
 vercel
 ```
 
-The app works perfectly on Vercel because it uses the Google PageSpeed Insights API (HTTP requests only, no Chrome/Chromium needed).
+The app makes plain HTTP requests to the PageSpeed Insights API, so no Chrome/Chromium is needed on the host.
 
-### Deploy to Other Platforms
+### Other platforms
 
-Works on any Node.js hosting platform:
+Works on any Node.js host:
+
 - **Netlify**: `npm run build && npm start`
-- **Railway**: Connect GitHub repo, auto-deploys
+- **Railway**: connect the GitHub repo, auto-deploys
 - **Render**: Node.js web service
-- **Heroku**: Add `Procfile` with `web: npm start`
+- **Heroku**: add a `Procfile` with `web: npm start`
 
-### Environment Variables (Optional)
-
-For production with higher rate limits, you can add a Google API key:
+### Environment variables
 
 ```env
 GOOGLE_PAGESPEED_API_KEY=your_api_key_here
 ```
 
-Get a free API key at: https://developers.google.com/speed/docs/insights/v5/get-started
+Optional, but recommended in production. Get a free key at <https://developers.google.com/speed/docs/insights/v5/get-started>.
 
 ## 📚 Resources
 
-- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
-- [Google Lighthouse](https://developers.google.com/web/tools/lighthouse)
+- [WCAG 2.2 quick reference](https://www.w3.org/WAI/WCAG22/quickref/)
+- [W3C evaluation guide](https://www.w3.org/WAI/test-evaluate/)
+- [Google Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/)
 - [MDN Accessibility](https://developer.mozilla.org/en-US/docs/Web/Accessibility)
 - [WebAIM](https://webaim.org/)
 
-## 🤝 Contributing
-
-This is an MVP project. Feel free to:
-- Report bugs or issues
-- Suggest new features
-- Submit pull requests
-- Improve documentation
-
 ## 📄 License
 
-MIT License - feel free to use this project for learning or commercial purposes.
-
-## 🙏 Acknowledgments
-
-- Built with [Next.js](https://nextjs.org/)
-- Powered by [Google Lighthouse](https://developers.google.com/web/tools/lighthouse)
-- Styled with [Tailwind CSS](https://tailwindcss.com/)
+MIT License — free to use for learning or commercial purposes.
 
 ---
 
