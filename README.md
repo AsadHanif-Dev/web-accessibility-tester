@@ -6,6 +6,8 @@ A web accessibility testing tool built with **Next.js**, **React**, **TypeScript
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=for-the-badge&logo=tailwind-css)
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAsadHanif-Dev%2Fweb-accessibility-tester&env=GOOGLE_PAGESPEED_API_KEY&envDescription=Optional%20PageSpeed%20Insights%20key%20for%20higher%20rate%20limits&envLink=https%3A%2F%2Fdevelopers.google.com%2Fspeed%2Fdocs%2Finsights%2Fv5%2Fget-started)
+
 ## ✨ Features
 
 - 🔍 **Real Lighthouse audits** — runs the accessibility category of Lighthouse through the Google PageSpeed Insights API, for desktop or mobile
