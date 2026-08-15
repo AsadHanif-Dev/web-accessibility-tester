@@ -17,7 +17,10 @@ const HISTORY_LIMIT = 6;
 const FEATURES = [
   {
     title: 'Real Lighthouse audits',
-    body: 'Every scan runs the same accessibility audits Chrome ships with, via the Google PageSpeed Insights API — no simulated results.',
+    // Not "no simulated results": without a PageSpeed API key the deployment
+    // shares Google's anonymous quota and falls back to clearly-flagged sample
+    // data once that runs out, so the absolute claim was not always true.
+    body: 'Scans run the same accessibility audits Chrome ships with, via the Google PageSpeed Insights API. If the quota is unavailable the results are clearly flagged as sample data.',
   },
   {
     title: 'Prioritised by impact',
@@ -225,11 +228,18 @@ export default function Home() {
               aria-label="Scan results"
             >
               {result.warning ? (
-                <div className="flex items-start gap-3 rounded-2xl border border-moderate/30 bg-moderate/10 p-4">
+                // Deliberately loud: these numbers describe a fixture, not the
+                // user's page, and acting on them would waste their time.
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-2xl border-2 border-moderate bg-moderate/15 p-4"
+                >
                   <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-moderate" />
                   <div>
-                    <h2 className="text-sm font-semibold text-ink">Demo data</h2>
-                    <p className="mt-0.5 text-sm text-ink-muted">{result.warning}</p>
+                    <h2 className="text-sm font-semibold text-ink">
+                      Sample results — this is not a scan of {result.url}
+                    </h2>
+                    <p className="mt-1 text-sm text-ink-muted">{result.warning}</p>
                   </div>
                 </div>
               ) : (

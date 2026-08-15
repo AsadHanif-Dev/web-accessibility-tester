@@ -319,7 +319,18 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new Error(`PageSpeed API returned ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`);
+      // Log the raw body for debugging, but never surface it: Google returns a
+      // multi-line JSON blob that reads as a stack trace in the UI.
+      console.error(`PageSpeed API ${response.status}:`, detail.slice(0, 500));
+
+      const err = new Error(
+        response.status === 429
+          ? 'RATE_LIMITED'
+          : response.status === 400
+            ? 'BAD_TARGET'
+            : `PageSpeed returned HTTP ${response.status}`
+      );
+      throw err;
     }
 
     const data = await response.json();
@@ -382,15 +393,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error: any) {
-    const reason =
-      error?.name === 'TimeoutError'
-        ? 'the scan timed out'
-        : error?.message || 'the scan could not be completed';
-    console.error('PageSpeed API error, falling back to demo data:', reason);
+    const code = error?.name === 'TimeoutError' ? 'TIMEOUT' : error?.message;
+    console.error('PageSpeed scan failed, serving demo data:', code);
+
+    // One clear sentence per failure mode. The previous version pasted
+    // Google's raw JSON error body into the banner.
+    const warning =
+      code === 'RATE_LIMITED'
+        ? 'This deployment has no PageSpeed API key, so it shares Google’s anonymous quota — which is currently exhausted. The results below are sample data, not a real scan. Set GOOGLE_PAGESPEED_API_KEY to run live audits.'
+        : code === 'BAD_TARGET'
+          ? 'Google could not analyse that URL. It must be a public page that is reachable without a login. The results below are sample data.'
+          : code === 'TIMEOUT'
+            ? 'The audit took longer than 55 seconds and was stopped. Large pages sometimes exceed the limit — the results below are sample data.'
+            : 'The audit could not be completed, so the results below are sample data rather than a real scan.';
 
     return NextResponse.json({
       ...generateMockData(url, strategy),
-      warning: `Showing demo data because ${reason}. Google PageSpeed Insights may be rate-limited — add a GOOGLE_PAGESPEED_API_KEY or retry shortly.`,
+      warning,
     } satisfies ScanResult);
   }
 }
